@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Photo Catalog — Мобильный фото-сканер</title>
+  
+  <!-- Apple iOS Web App Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Photo Catalog">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <!-- PWA Manifest & Theme -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#000000">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- =======================================================================
+       1. CAMERA VIEW (Default Active Screen)
+       ======================================================================= -->
+  <main id="view-camera" class="view active" aria-label="Экран съёмки">
+    <div class="camera-viewport">
+      <video id="camera-video" playsinline webkit-playsinline autoplay muted></video>
+      <div id="camera-flash-overlay" class="camera-flash-overlay"></div>
+    </div>
+
+    <!-- Top floating controls -->
+    <header class="camera-top-bar">
+      <!-- Mode Toggle: Single vs Continuous -->
+      <button id="btn-mode-toggle" class="camera-pill-btn" aria-label="Переключить режим съёмки" title="Переключить режим съёмки">
+        <span class="mode-indicator-dot"></span>
+        <span id="camera-mode-label">Одиночный</span>
+      </button>
+
+      <!-- Flip camera button (Front/Rear) -->
+      <button id="btn-camera-flip" class="camera-icon-btn" aria-label="Переключить камеру" title="Сменить камеру">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Bottom shutter control bar -->
+    <footer class="camera-bottom-bar">
+      <!-- Gallery Thumbnail / Count Button -->
+      <button id="btn-open-gallery" class="shutter-gallery-btn" aria-label="Открыть картотеку" title="Картотека">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <span id="shutter-badge-count" class="shutter-badge">0</span>
+      </button>
+
+      <!-- Center Big Shutter Button -->
+      <div class="shutter-btn-wrapper">
+        <div class="shutter-ring"></div>
+        <button id="btn-shutter" class="shutter-btn" aria-label="Сделать снимок"></button>
+      </div>
+
+      <!-- Right balanced spacer -->
+      <div class="camera-bar-spacer"></div>
+    </footer>
+
+    <!-- Camera Error / Permission Fallback -->
+    <div id="camera-error-banner" class="camera-error-banner">
+      <div class="camera-error-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+      </div>
+      <h2 class="camera-error-title">Доступ к камере</h2>
+      <p id="camera-error-text" class="camera-error-text">Не удалось запустить видеокамеру.</p>
+      <button id="btn-camera-retry" class="btn-primary">Повторить попытку</button>
+    </div>
+  </main>
+
+  <!-- =======================================================================
+       2. SINGLE MODE PREVIEW MODAL
+       ======================================================================= -->
+  <div id="preview-modal" class="preview-modal" aria-hidden="true" role="dialog" aria-label="Предпросмотр снимка">
+    <div class="preview-img-container">
+      <img id="preview-image" alt="Предпросмотр снимка">
+    </div>
+    <div class="preview-bottom-bar">
+      <button id="btn-preview-retake" class="btn-preview-retake">
+        Переснять
+      </button>
+      <button id="btn-preview-save" class="btn-preview-save">
+        <span id="preview-save-spinner" class="spinner" style="display: none;"></span>
+        <span>Сохранить</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       3. GALLERY VIEW (Catalog Screen)
+       ======================================================================= -->
+  <section id="view-gallery" class="view" aria-label="Картотека фотографий">
+    <!-- Header -->
+    <header class="gallery-header">
+      <div class="gallery-title-box">
+        <h1 class="gallery-title">Картотека</h1>
+        <span id="gallery-total-count" class="gallery-subtitle">0 фотографий</span>
+      </div>
+      <div class="gallery-header-actions">
+        <button id="btn-close-gallery" class="btn-close-gallery" title="Вернуться к съёмке">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          <span>Камера</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Sub-bar (Backup, Import) -->
+    <div class="gallery-sub-bar">
+      <button id="btn-backup" class="sub-bar-btn" title="Резервное копирование">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span>Экспорт / Резерв</span>
+      </button>
+
+      <button id="btn-import" class="sub-bar-btn" title="Восстановить картотеку">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span>Импорт</span>
+      </button>
+
+      <!-- Hidden file input for import -->
+      <input type="file" id="file-import-input" accept=".zip,.json" style="display: none;">
+    </div>
+
+    <!-- Storage quota indicator -->
+    <div id="storage-bar-container" class="storage-bar-container"></div>
+
+    <!-- Scrollable Photo Grid -->
+    <main class="gallery-content">
+      <div id="gallery-grid" class="gallery-grid"></div>
+
+      <!-- Empty State -->
+      <div id="gallery-empty-state" class="gallery-empty-state">
+        <div class="empty-state-icon">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </div>
+        <h2 class="empty-state-title">Картотека пуста</h2>
+        <p class="empty-state-text">Здесь будут отображаться сделанные вами фотографии объектов.</p>
+        <button id="btn-gallery-start-photo" class="btn-primary">Сделать первое фото</button>
+      </div>
+    </main>
+  </section>
+
+  <!-- =======================================================================
+       4. LIGHTBOX / FULLSCREEN PHOTO MODAL
+       ======================================================================= -->
+  <div id="lightbox-modal" class="lightbox-modal" aria-hidden="true" role="dialog" aria-label="Просмотр фотографии">
+    <div class="lightbox-top-bar">
+      <span id="lightbox-index-badge" class="lightbox-index-badge">1 из 1</span>
+      <button id="btn-lightbox-close" class="lightbox-btn-icon" aria-label="Закрыть">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div id="lightbox-image-container" class="lightbox-image-container">
+      <span id="lightbox-spinner" class="spinner" style="position: absolute;"></span>
+      <img id="lightbox-img" alt="Фотография в полном размере">
+
+      <button id="btn-lightbox-prev" class="lightbox-nav-btn lightbox-nav-prev" aria-label="Предыдущее фото">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+
+      <button id="btn-lightbox-next" class="lightbox-nav-btn lightbox-nav-next" aria-label="Следующее фото">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="lightbox-bottom-sheet">
+      <div class="lightbox-meta">
+        <span id="lightbox-date" class="lightbox-date">—</span>
+        <span id="lightbox-specs" class="lightbox-specs">—</span>
+      </div>
+      <div class="lightbox-actions">
+        <button id="btn-lightbox-download" class="lightbox-btn-icon" title="Скачать файл">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </button>
+        <button id="btn-lightbox-delete" class="lightbox-btn-icon lightbox-btn-delete" title="Удалить фото">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            <line x1="10" y1="11" x2="10" y2="17"/>
+            <line x1="14" y1="11" x2="14" y2="17"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       5. EXPORT / BACKUP MODAL SHEET
+       ======================================================================= -->
+  <div id="export-modal" class="modal-backdrop" aria-hidden="true" role="dialog" aria-label="Экспорт картотеки">
+    <div class="bottom-sheet">
+      <div class="sheet-header">
+        <h3 class="sheet-title">Экспорт картотеки</h3>
+        <button id="btn-export-close" class="btn-ghost">Закрыть</button>
+      </div>
+      <div class="sheet-options">
+        <button id="btn-export-zip" class="sheet-option-btn">
+          <div class="sheet-option-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 8v13H3V8"/>
+              <path d="M1 3h22v5H1z"/>
+              <path d="M10 12h4"/>
+            </svg>
+          </div>
+          <div class="sheet-option-text">
+            <span class="sheet-option-name">ZIP-архив с фотографиями</span>
+            <span class="sheet-option-desc">Оригинальные .jpg файлы + файл метаданных catalog.json</span>
+          </div>
+        </button>
+
+        <button id="btn-export-json" class="sheet-option-btn">
+          <div class="sheet-option-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </div>
+          <div class="sheet-option-text">
+            <span class="sheet-option-name">Полный JSON бэкап</span>
+            <span class="sheet-option-desc">Единый файл для быстрого резервного восстановления</span>
+          </div>
+        </button>
+      </div>
+      <div id="export-progress" class="sheet-progress-text"></div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Scripts -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
